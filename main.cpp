@@ -16,7 +16,7 @@
 #include <algorithm> // Necessary for std::clamp
 #include <limits> // Necessary for std::numeric_limits
 #include <cstdint> // Necessary for uint32_t
-
+#include "resource.h"
 const wchar_t CLASS_NAME[] = L"VulkanWindow";
 const std::vector<const char*> validationLayers =
 {
@@ -72,6 +72,8 @@ public:
 		graphicsQueue = {};
 		presentQueue = {};
 		swapChain = {};
+		swapChainImageFormat = {};
+		swapChainExtent = {};
 	}
 	~HelloTriangleApplication()
 	{
@@ -127,17 +129,25 @@ private:
 	void initConsole()
 	{
 		AllocConsole();
+		SetConsoleTitle(L"Vulkan Debug Console");
 		FILE* pFile;
 		freopen_s(&pFile, "CONOUT$", "w", stdout);
 		FILE* pErr;
 		freopen_s(&pErr, "CONOUT$", "w", stderr);   // Redirect std::cerr
+		HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+		// You can now print in bright green
+		std::cout << "Console initialized successfully!" << std::endl;
 	}
 	void initWindow(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 	{
+		HCURSOR hCursor = LoadCursor(hInstance, MAKEINTRESOURCE(IDC_CURSOR1));
 		wc.style = CS_OWNDC;
 		wc.lpfnWndProc = WindowProc;
 		wc.hInstance = hInstance;
 		wc.lpszClassName = CLASS_NAME;
+		wc.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1));
+		wc.hCursor = hCursor;
 
 		RegisterClass(&wc);
 
@@ -149,7 +159,6 @@ private:
 			CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
 			nullptr, nullptr, hInstance, nullptr
 		);
-
 		DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
 		ShowWindow(hwnd, nCmdShow);
 
