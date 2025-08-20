@@ -19,6 +19,8 @@
 #include <fstream>
 #include "resource.h"
 const wchar_t CLASS_NAME[] = L"VulkanWindow";
+const uint32_t SCR_WIDTH = 800;
+const uint32_t SCR_HEIGHT = 600;
 const std::vector<const char*> validationLayers =
 {
 	"VK_LAYER_KHRONOS_validation"
@@ -65,6 +67,8 @@ public:
 		msg = {};
 		wc = {};
 		hwnd = {};
+		width = SCR_WIDTH;
+		height = SCR_HEIGHT;
 		instance = {};
 		debugMessenger = {};
 		surface = {};
@@ -113,6 +117,8 @@ private:
 	MSG msg;
 	WNDCLASS wc;
 	HWND hwnd;
+	uint32_t width;
+	uint32_t height;
 	VkInstance instance;
 	VkDebugUtilsMessengerEXT debugMessenger;
 	VkSurfaceKHR surface;
@@ -137,6 +143,11 @@ private:
 	BOOL darkMode = TRUE;
 	static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 		switch (uMsg) {
+		case WM_SIZE: {
+			auto app = reinterpret_cast<HelloTriangleApplication*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+			app->GetWindowSize(hwnd);
+
+		}
 		case WM_DESTROY:
 			PostQuitMessage(0);
 			return 0;
@@ -172,12 +183,13 @@ private:
 		hwnd = CreateWindowEx(
 			0,
 			CLASS_NAME,
-			L"Test Window",
+			L"Vulkan Test",
 			WS_OVERLAPPEDWINDOW,
-			CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
+			CW_USEDEFAULT, CW_USEDEFAULT, SCR_WIDTH, SCR_HEIGHT,
 			nullptr, nullptr, hInstance, nullptr
 		);
 		DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
+		SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 		ShowWindow(hwnd, nCmdShow);
 
 
@@ -519,8 +531,8 @@ private:
 		else {
 
 			VkExtent2D actualExtent = {
-				static_cast<uint32_t>(800),
-				static_cast<uint32_t>(600)
+				static_cast<uint32_t>(width),
+				static_cast<uint32_t>(height)
 			};
 
 			actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
@@ -908,8 +920,18 @@ private:
 			throw std::runtime_error("failed to create semaphores!");
 		}
 	}
+	void GetWindowSize(HWND hwnd) {
+		RECT rect;
+		if (GetWindowRect(hwnd, &rect)) {
+			width = rect.right - rect.left;
+			height = rect.bottom - rect.top;
+			std::cout << "Window size: " << width << "x" << height << std::endl;
+		}
+		else {
+			std::cerr << "Failed to get window size." << std::endl;
+		}
 
-
+	}
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
