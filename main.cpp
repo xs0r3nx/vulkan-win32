@@ -1,6 +1,7 @@
 ﻿
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <windows.h>
+#include <WinUser.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_win32.h>
 #include <dwmapi.h>
@@ -154,6 +155,9 @@ public:
 		commandPool = {};
 		currentFrame = 0;
 		framebufferResized = false;
+		cameraPos = glm::vec3(2.0f, 2.0f, 2.0f);
+		cameraFront = glm::vec3(0.0f, 0.0f, 0.0f);
+		cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 		vertexBuffer = {};
 		indexBuffer = {};
 		indexBufferMemory = {};
@@ -227,6 +231,11 @@ private:
 	VkDeviceMemory vertexBufferMemory;
 	VkBuffer indexBuffer;
 	VkDeviceMemory indexBufferMemory;
+	glm::vec3 cameraPos;
+	glm::vec3 cameraFront;
+	glm::vec3 cameraUp;
+	float yaw;
+	float pitch;
 	std::vector<VkBuffer> uniformBuffers;
 	std::vector<VkDeviceMemory> uniformBuffersMemory;
 	std::vector<void*> uniformBuffersMapped;
@@ -249,6 +258,7 @@ private:
 			return 0;
 
 		}
+
 		case WM_DESTROY:
 			PostQuitMessage(0);
 			return 0;
@@ -331,7 +341,7 @@ private:
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
-
+			inputz();
 			drawFrame();
 
 		}
@@ -1295,8 +1305,9 @@ private:
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 		UniformBufferObject ubo{};
+
 		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 		ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
 		ubo.proj[1][1] *= -1;
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
@@ -1656,9 +1667,46 @@ private:
 			}
 		}
 	}
+	void inputz()
+	{
+		static float lastX = 0.0f;
+		static float lastY = 0.0f;
+		static bool firstMouse = true;
 
+		float speed = 0.05f;
+		if (GetAsyncKeyState('W') & 0x8000) cameraPos += speed * cameraFront;
+		if (GetAsyncKeyState('S') & 0x8000) cameraPos -= speed * cameraFront;
+		if (GetAsyncKeyState('A') & 0x8000) cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * speed;
+		if (GetAsyncKeyState('D') & 0x8000) cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * speed;
+		POINT mousePos;
+		GetCursorPos(&mousePos);
+		POINT center;
+		RECT rect;
+		GetClientRect(hwnd, &rect);
+		center.x = (rect.right - rect.left) / 2;
+		center.y = (rect.bottom - rect.top) / 2;
+		ClientToScreen(hwnd, &center);
+
+		float xOffset = static_cast<float>(mousePos.x - center.x);
+		float yOffset = static_cast<float>(center.y - mousePos.y); // Y inverted
+		float sensitivity = 0.1f;
+		yaw += xOffset * sensitivity;
+		pitch += yOffset * sensitivity;
+
+		// Clamp pitch to avoid flipping
+		pitch = std::clamp(pitch, -89.0f, 89.0f);
+
+		// Calculate delta, update yaw/pitch, etc.
+		glm::vec3 direction;
+		direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+		direction.y = sin(glm::radians(pitch));
+		direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+		cameraFront = glm::normalize(direction);
+		SetCursorPos(center.x, center.y);
+
+
+	}
 };
-
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 	auto rendererInstance = std::make_unique<HelloTriangleApplication>();
